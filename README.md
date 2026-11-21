@@ -1,25 +1,24 @@
 # Integrative Radiogenomics and AI-Based Models for Brain Tumor Prognosis
 
-A harmonized, multicenter, MRI-centered multimodal radiogenomic framework combining **3D habitat segmentation**, **IBSI PyRadiomics & 3D Transformer features**, **molecular/genomic biomarkers (IDH, MGMT, TERT, 1p/19q)**, **cross-modal attention fusion**, **DeepSurv time-to-event survival modeling**, and **SHAP/Grad-CAM biological interpretation**.
+A retrospective, multi-cohort, habitat-aware multimodal radiogenomics framework combining **multiparametric MRI radiomics (shape, intensity, texture, wavelet, LoG)**, **3D deep habitat embeddings**, **molecular biomarkers (IDH, MGMT, TERT with explicit Unknown flags)**, and **clinical covariates (Age, KPS, Extent of Resection)** to predict Overall Survival (OS) in adult glioblastoma.
 
-## 10-Phase End-to-End Pipeline
+## Research Problem & Main Objective
 
-1. **Data Acquisition**: Multi-institutional MRI (T1, T1ce, T2, FLAIR), genomic/methylation, and clinical covariates from **BraTS, TCGA-GBM** (discovery) and **NCI-CPTAC** (external validation).
-2. **Image Harmonization & Preprocessing**: 1 mm³ isotropic registration, HD-BET skull stripping, Z-score intensity normalization, and **AutoComBat** multicenter scanner batch correction.
-3. **Habitat-Aware Tumor Segmentation**: **SFF-Former** 3D segmentation of Whole Tumor (WT), Tumor Core (TC), Enhancing Tumor (ET), and Peritumoral Edema habitats.
-4. **Multimodal Feature Extraction**: PyRadiomics handcrafted habitat features + 3D Swin/ViT encoder embeddings + IDH1/2, MGMT, TERT, 1p/19q, and transcriptomic pathway scores.
-5. **Feature Selection & Fusion**: LASSO-Cox collinearity pruning followed by **Attention-Transformer** cross-modal representation learning.
-6. **Prognostic Survival Modeling**: **DeepSurv-Attention** time-to-event survival head predicting Overall Survival (OS), Progression-Free Survival (PFS), and 12-month recurrence risk.
-7. **Radiogenomic Biological Interpretation**: Correlating imaging habitat phenotypes with MGMT promoter methylation, HIF-1α angiogenesis, and CD8+ immune infiltration.
-8. **Explainable AI (XAI)**: Patient-level SHAP feature attributions and 3D spatial Grad-CAM attention overlays.
-9. **Validation Strategy**: 5-fold internal cross-validation + locked multi-center external validation reporting Harrell's C-index, 12-month AUC, Brier calibration, and Decision Curve Analysis (DCA).
-10. **Clinical Translation**: Interactive radiogenomic nomogram for neuro-oncology risk stratification.
+- **Core Problem**: Glioblastoma exhibits marked molecular, spatial, and temporal heterogeneity not captured by single-site biopsy or single-ROI unimodal models. Existing AI models suffer from scanner batch drift, feature screening leakage, and lack of external calibration.
+- **Main Objective**: Develop and validate an integrative, habitat-aware radiogenomic prognostic framework across **UPenn-GBM + TCGA-GBM** (discovery nested CV) and **CPTAC-GBM** (locked confirmatory external validation), using **BraTS-2021** strictly for 3D segmentation pretraining.
 
-## Benchmark Comparison (Discovery vs. External Validation: NCI-CPTAC)
+## M0–M5 Modeling Ladder (UPenn-GBM + TCGA-GBM Discovery → CPTAC-GBM Locked External)
 
-| Model Baseline | Modalities | Internal C-Index | External C-Index | 12-Mo AUC | Brier Score |
-| :--- | :--- | :---: | :---: | :---: | :---: |
-| Clinical-Only CoxPH (Age, KPS, EOR) | Clinical | 0.642 | 0.621 | 0.643 | 0.214 |
-| MRI Habitat Radiomics (SFF-Former + AutoComBat) | Imaging | 0.758 | 0.730 | 0.761 | 0.165 |
-| Molecular-Only Signature (IDH, MGMT, TERT, 1p/19q) | Genomics | 0.712 | 0.697 | 0.725 | 0.172 |
-| **Fused Radiogenomic Model (Attention-Transformer + DeepSurv-Attention)** | **Multimodal** | **0.855** | **0.829** | **0.863** | **0.120** |
+| Code | Model Tier | Internal C-Index | External C-Index | 12-Mo AUC | Cal. Slope | MACE ↓ | DCA Net Benefit | Paired Bootstrap |
+| :---: | :--- | :---: | :---: | :---: | :---: | :---: | :---: | :---: |
+| **M0** | M0: Clinical-Only CoxPH Baseline | 0.642 | 0.620 | 0.641 | 0.86 | 0.074 | +0.082 | Ref (1.00) |
+| **M1** | M1: Habitat Radiomics-Only (nnU-Net-3D) | 0.744 | 0.717 | 0.744 | 0.91 | 0.052 | +0.142 | p = 0.018 |
+| **M2** | M2: Molecular-Only Baseline (Explicit Unknown Flags) | 0.706 | 0.692 | 0.717 | 0.89 | 0.056 | +0.148 | p = 0.021 |
+| **M3** | M3: Clinical + Habitat Radiomics Fusion | 0.770 | 0.741 | 0.770 | 0.93 | 0.044 | +0.179 | p = 0.004 |
+| **M4** | M4: Clinical + Radiomics + Molecular Fusion | 0.798 | 0.768 | 0.799 | 0.95 | 0.036 | +0.206 | p < 0.001 |
+| **M5** | M5: Deep Cross-Attention Network (Attention-Transformer + Aux MGMT/IDH Heads) | 0.832 | 0.802 | 0.837 | 0.98 | 0.027 | +0.253 | p < 0.0001 |
+
+## Key Methodological Safeguards
+1. **Cohort Isolation**: `BraTS 2021` is restricted strictly to 3D segmentation pretraining (Dice & HD95); `UPenn-GBM` and `TCGA-GBM/TCIA` form the discovery nested-CV cohorts; `CPTAC-GBM` is held out as a locked confirmatory external cohort.
+2. **Training-Fold-Only Harmonization & Screening**: `AutoComBat` harmonization, univariate Cox filtering, correlation pruning (|r| > 0.85), and LASSO/RFE are fitted strictly inside training folds to prevent test leakage.
+3. **Missing-Modality Cross-Attention & Auxiliary Biological Heads**: Modality tokens handle missing molecular tests (`Unknown` flags) via attention masking while auxiliary `MGMT` and `IDH` classification heads preserve biological signal in the fused representation.
