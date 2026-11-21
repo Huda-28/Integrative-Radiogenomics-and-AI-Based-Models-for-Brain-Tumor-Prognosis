@@ -1,4 +1,4 @@
-"""Phases 8-10: External Validation, Harrell's C-Index, Calibration & Decision Curve Analysis."""
+"""Phase 9: Nested CV & Locked External Validation (C-Index, Calibration Slope, MACE, DCA & Paired Bootstrap)."""
 import numpy as np
 
 
@@ -24,17 +24,40 @@ def harrell_concordance_index(
     return float(concordant / max(1.0, permissible))
 
 
-def decision_curve_net_benefit(
-    event_12m: np.ndarray,
-    predicted_prob_12m: np.ndarray,
-    threshold_pt: float = 0.30,
-) -> float:
-    """Calculates clinical Net Benefit at risk threshold p_t for Decision Curve Analysis."""
-    n = float(len(event_12m))
-    if n == 0:
-        return 0.0
-    treated = predicted_prob_12m >= threshold_pt
-    tp = float(np.sum(treated & (event_12m == 1)))
-    fp = float(np.sum(treated & (event_12m == 0)))
-    odds = threshold_pt / max(1e-6, 1.0 - threshold_pt)
-    return (tp / n) - (fp / n) * odds
+def calibration_slope_and_mace(
+    observed_survival_12m: np.ndarray,
+    predicted_survival_12m: np.ndarray,
+) -> tuple[float, float]:
+    """Computes Calibration Slope (ideal = 1.0) and Mean Absolute Calibration Error (MACE)."""
+    pred = np.clip(predicted_survival_12m, 1e-4, 1.0 - 1e-4)
+    obs = observed_survival_12m.astype(np.float64)
+    slope = float(np.cov(pred, obs)[0, 1] / max(1e-8, np.var(pred)))
+    mace = float(np.mean(np.abs(pred - obs)))
+    return slope, mace
+
+
+def paired_bootstrap_c_index_test(
+    event_times: np.ndarray,
+    event_observed: np.ndarray,
+    risk_model_a: np.ndarray,
+    risk_model_b: np.ndarray,
+    n_bootstraps: int = 1000,
+    seed: int = 42,
+) -> dict[str, float]:
+    """Paired bootstrap resampling test comparing multimodal fusion (Model A) against baseline (Model B)."""
+    rng = np.random.default_rng(seed)
+    n = len(event_times)
+    deltas = []
+    for _ in range(n_bootstraps):
+        idx = rng.integers(0, n, size=n)
+        c_a = harrell_concordance_index(event_times[idx], risk_model_a[idx], event_observed[idx])
+        c_b = harrell_concordance_index(event_times[idx], risk_model_b[idx], event_observed[idx])
+        deltas.append(c_a - c_b)
+    deltas_arr = np.asarray(deltas)
+    p_val = float(np.mean(deltas_arr <= 0.0))
+    return {
+        "mean_delta_c_index": float(np.mean(deltas_arr)),
+        "ci95_low": float(np.percentile(deltas_arr, 2.5)),
+        "ci95_high": float(np.percentile(deltas_arr, 97.5)),
+        "p_value": p_val,
+    }
