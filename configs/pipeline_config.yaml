@@ -1,31 +1,37 @@
 project: "Integrative-Radiogenomics-and-AI-Based-Models-for-Brain-Tumor-Prognosis"
+
 cohorts:
-  discovery: ["BraTS", "TCGA-GBM"]
-  external_validation: "NCI-CPTAC"
-  endpoints: ["overall_survival_months", "pfs_months", "recurrence_12m"]
+  segmentation_pretraining_only: "BraTS-2021"
+  discovery_nested_cv: ["UPenn-GBM", "TCGA-GBM"]
+  locked_external_validation: "CPTAC-GBM"
+  primary_endpoint: "overall_survival_days"
 
 preprocessing:
   modalities: ["T1", "T1ce", "T2", "FLAIR"]
   target_spacing_mm: [1.0, 1.0, 1.0]
   atlas_registration: "SRI24"
-  skull_stripping: "HD-BET"
-  intensity_normalization: "z_score_brain_mask"
+  brain_extraction: "HD-BET"
   harmonization_method: "AutoComBat"
+  fit_inside_training_fold_only: true
+  ablate_with_and_without_harmonization: true
 
 segmentation:
-  architecture: "SFF-Former"
+  architecture: "nnU-Net-3D"
+  metrics: ["Dice", "HD95_mm"]
   habitats:
-    - id: 1
-      name: "necrotic_and_non_enhancing_core"
-    - id: 2
-      name: "peritumoral_edematous_infiltrated_tissue"
-    - id: 4
-      name: "gd_enhancing_tumor_rim"
+    - "whole_tumor"
+    - "tumor_core"
+    - "enhancing_tumor_rim"
+    - "necrotic_core"
+    - "peritumoral_edema_habitat"
 
-fusion_and_survival:
-  feature_selection: "LASSO_Cox_RFE"
-  fusion_module: "Attention-Transformer"
-  survival_head: "DeepSurv-Attention"
-  embed_dim: 128
-  num_attention_heads: 4
-  dropout: 0.20
+feature_families:
+  handcrafted_radiomics: ["shape", "firstorder", "glcm", "glrlm", "wavelet", "log_sigma_1_3_5mm"]
+  deep_image_features: "3d_encoder_bottleneck_tokens"
+  molecular_variables: ["IDH1_2", "MGMT_promoter", "TERT_promoter", "explicit_unknown_flag"]
+  clinical_variables: ["age", "kps", "extent_of_resection"]
+
+modeling_ladder: ["M0_Clinical_Cox", "M1_Radiomics_RSF", "M2_Molecular_Cox", "M3_Clin_Rad", "M4_Clin_Rad_Mol", "M5_CrossAttention_AuxHeads"]
+auxiliary_biological_heads:
+  enabled: true
+  targets: ["MGMT_methylation", "IDH_mutation"]
