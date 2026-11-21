@@ -1,0 +1,31 @@
+project: "Integrative-Radiogenomics-and-AI-Based-Models-for-Brain-Tumor-Prognosis"
+cohorts:
+  discovery: ["BraTS", "TCGA-GBM"]
+  external_validation: "NCI-CPTAC"
+  endpoints: ["overall_survival_months", "pfs_months", "recurrence_12m"]
+
+preprocessing:
+  modalities: ["T1", "T1ce", "T2", "FLAIR"]
+  target_spacing_mm: [1.0, 1.0, 1.0]
+  atlas_registration: "SRI24"
+  skull_stripping: "HD-BET"
+  intensity_normalization: "z_score_brain_mask"
+  harmonization_method: "AutoComBat"
+
+segmentation:
+  architecture: "SFF-Former"
+  habitats:
+    - id: 1
+      name: "necrotic_and_non_enhancing_core"
+    - id: 2
+      name: "peritumoral_edematous_infiltrated_tissue"
+    - id: 4
+      name: "gd_enhancing_tumor_rim"
+
+fusion_and_survival:
+  feature_selection: "LASSO_Cox_RFE"
+  fusion_module: "Attention-Transformer"
+  survival_head: "DeepSurv-Attention"
+  embed_dim: 128
+  num_attention_heads: 4
+  dropout: 0.20
