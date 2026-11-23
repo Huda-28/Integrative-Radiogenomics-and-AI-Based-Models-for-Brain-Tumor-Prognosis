@@ -1,11 +1,69 @@
-torch>=2.2.0
-monai>=1.3.0
-pyradiomics>=3.1.0
-lifelines>=0.28.0
-scikit-survival>=0.22.0
-neuroCombat>=0.2.12
-shap>=0.45.0
+# ==============================================================================
+# Integrative Radiogenomics and AI-Based Models for Brain Tumor Prognosis
+# Complete Python Environment Requirements (Phases 1–10 + M0–M6 Pipeline)
+# Recommended Python: 3.10 or 3.11 (required for PyRadiomics & scikit-survival)
+# ==============================================================================
+
+# --- 1. Core Scientific Computing & Deep Learning ---
+# Note: numpy<2.0.0 is kept for full ABI compatibility with pyradiomics, neuroCombat, and shap.
+# For NVIDIA CUDA GPUs, install PyTorch with the matching CUDA wheel first, e.g.:
+#   pip install torch>=2.2.0,<2.6.0 torchvision>=0.17.0 --index-url https://download.pytorch.org/whl/cu121
+torch>=2.2.0,<2.6.0
+torchvision>=0.17.0,<0.21.0
+numpy>=1.24.0,<2.0.0
+scipy>=1.10.0,<1.14.0
+pandas>=2.0.0,<2.3.0
+einops>=0.7.0
+
+# --- 2. Phase 1–3: Neuroimaging I/O, SRI24 Registration & 5-Habitat 3D Segmentation ---
+nibabel>=5.1.0
 SimpleITK>=2.3.0
-nibabel>=5.2.0
-pandas>=2.2.0
-numpy>=1.26.0
+torchio>=0.19.6
+monai[nibabel,einops]>=1.3.0
+nnunetv2>=2.4.0
+pydicom>=2.4.0
+dicom2nifti>=2.4.0
+# ANTsPy provides automated SRI24 atlas registration & N4 bias correction on Linux/macOS/WSL2:
+antspyx>=0.4.2; sys_platform != "win32"
+
+# --- 3. Phase 2 & 4: IBSI Radiomics, Mask Perturbation ICC & AutoComBat Harmonization ---
+pyradiomics>=3.1.0
+PyWavelets>=1.4.1
+neuroCombat>=0.2.12
+statsmodels>=0.14.0
+pingouin>=0.5.4
+
+# --- 4. Phase 5, 6 & 9: Fold-Safe Screening, Survival Models & Isotonic Recalibration ---
+scikit-learn>=1.3.0,<1.6.0
+lifelines>=0.27.8
+scikit-survival>=0.22.2
+torchtuples>=0.2.2
+pycox>=0.2.3
+
+# --- 5. M6 SOTA Extension: 3D Brain Foundation Backbone, LoRA & Conformal Calibration ---
+# Note: SelectiveStateSpaceBlock in m6_foundation_mamba_conformal.py runs in pure PyTorch
+# (no CUDA kernel compilation required on Windows/macOS/CPU).
+timm>=0.9.16
+transformers>=4.40.0
+peft>=0.10.0
+accelerate>=0.29.0
+safetensors>=0.4.2
+
+# --- 6. Phase 7–10: Quantitative XAI Faithfulness, Visualization, Config & Local API ---
+shap>=0.44.0
+captum>=0.7.0
+matplotlib>=3.8.0
+seaborn>=0.13.0
+PyYAML>=6.0.1
+tqdm>=4.66.0
+requests>=2.31.0
+fastapi>=0.111.0
+pydantic>=2.6.0
+uvicorn>=0.29.0
+pytest>=8.0.0
+
+# --- Optional Extras (Install separately only if needed) ---
+# 1) Faster CUDA-fused Mamba kernels (Linux + NVIDIA nvcc toolkit only):
+#    pip install causal-conv1d>=1.2.0 mamba-ssm>=1.2.0
+# 2) Raw non-skull-stripped clinical DICOM brain extraction (HD-BET):
+#    pip install git+https://github.com/MIC-DKFZ/HD-BET.git
