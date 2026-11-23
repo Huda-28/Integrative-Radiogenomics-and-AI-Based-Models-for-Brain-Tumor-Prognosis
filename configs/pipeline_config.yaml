@@ -1,37 +1,43 @@
 project: "Integrative-Radiogenomics-and-AI-Based-Models-for-Brain-Tumor-Prognosis"
 
+who_2021_compliance:
+  classification_edition: "WHO_CNS_5th_Edition_2021"
+  strict_idh_wildtype_glioblastoma_cohort: true
+  reclassify_legacy_grade4_idh_mutant: true
+
 cohorts:
   segmentation_pretraining_only: "BraTS-2021"
   discovery_nested_cv: ["UPenn-GBM", "TCGA-GBM"]
   locked_external_validation: "CPTAC-GBM"
+  longitudinal_rano_cohort: "LUMIERE-Longitudinal"
   primary_endpoint: "overall_survival_days"
+  secondary_endpoints: ["progression_free_survival_days", "rano_pseudoprogression_status"]
 
 preprocessing:
-  modalities: ["T1", "T1ce", "T2", "FLAIR"]
+  modalities: ["T1", "T1ce", "T2", "FLAIR", "DSC_rCBV", "DWI_ADC"]
   target_spacing_mm: [1.0, 1.0, 1.0]
   atlas_registration: "SRI24"
-  brain_extraction: "HD-BET"
-  harmonization_method: "AutoComBat"
+  intensity_standardization: "z_score"
+  harmonization_method: "AutoComBat-Isotonic"
   fit_inside_training_fold_only: true
+  post_hoc_isotonic_hazard_recalibration: true
   ablate_with_and_without_harmonization: true
 
 segmentation:
   architecture: "nnU-Net-3D"
-  metrics: ["Dice", "HD95_mm"]
-  habitats:
-    - "whole_tumor"
-    - "tumor_core"
-    - "enhancing_tumor_rim"
-    - "necrotic_core"
-    - "peritumoral_edema_habitat"
+  metrics: ["Dice", "HD95_mm", "Mask_Perturbation_ICC"]
+  mask_perturbation_threshold_icc: 0.85
+  compartments:
+    - "enhancing_tumor_ET"
+    - "necrotic_non_enhancing_core_NCR_NET"
+    - "peritumoral_edema_ED"
+    - "tumor_core_TC"
+    - "whole_tumor_WT"
 
-feature_families:
-  handcrafted_radiomics: ["shape", "firstorder", "glcm", "glrlm", "wavelet", "log_sigma_1_3_5mm"]
-  deep_image_features: "3d_encoder_bottleneck_tokens"
-  molecular_variables: ["IDH1_2", "MGMT_promoter", "TERT_promoter", "explicit_unknown_flag"]
-  clinical_variables: ["age", "kps", "extent_of_resection"]
+feature_screening:
+  raw_candidate_predictors: 1212
+  target_selected_predictors: 18
+  minimum_events_per_predictor_epp: 20.0
 
-modeling_ladder: ["M0_Clinical_Cox", "M1_Radiomics_RSF", "M2_Molecular_Cox", "M3_Clin_Rad", "M4_Clin_Rad_Mol", "M5_CrossAttention_AuxHeads"]
-auxiliary_biological_heads:
-  enabled: true
-  targets: ["MGMT_methylation", "IDH_mutation"]
+modeling_ladder: ["M0_Clinical_Cox", "M1_5Habitat_Radiomics", "M2_Molecular_Tokens", "M3_Clin_Rad", "M4_Layered_Trimodal", "M5_CrossAttention_AuxHeads_Recalibrated", "M6_Foundation_Mamba_GMU_Conformal"]
+fusion_head_to_head_benchmark: ["Late_Layered_Cox", "Integrated_Subtyping_DNN", "M5_Intermediate_Cross_Attention", "M6_Foundation_Mamba_GMU_Conformal"]
