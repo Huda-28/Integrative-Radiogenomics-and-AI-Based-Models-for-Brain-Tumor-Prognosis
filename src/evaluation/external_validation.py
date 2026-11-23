@@ -1,4 +1,4 @@
-"""Phase 9: Nested CV & Locked External Validation (C-Index, Calibration Slope, MACE, DCA & Paired Bootstrap)."""
+"""Phases 8 & 9: Triadic Survival Validation & Quantitative XAI Insertion/Deletion Faithfulness."""
 import numpy as np
 
 
@@ -36,28 +36,27 @@ def calibration_slope_and_mace(
     return slope, mace
 
 
-def paired_bootstrap_c_index_test(
-    event_times: np.ndarray,
-    event_observed: np.ndarray,
-    risk_model_a: np.ndarray,
-    risk_model_b: np.ndarray,
-    n_bootstraps: int = 1000,
-    seed: int = 42,
-) -> dict[str, float]:
-    """Paired bootstrap resampling test comparing multimodal fusion (Model A) against baseline (Model B)."""
-    rng = np.random.default_rng(seed)
-    n = len(event_times)
-    deltas = []
-    for _ in range(n_bootstraps):
-        idx = rng.integers(0, n, size=n)
-        c_a = harrell_concordance_index(event_times[idx], risk_model_a[idx], event_observed[idx])
-        c_b = harrell_concordance_index(event_times[idx], risk_model_b[idx], event_observed[idx])
-        deltas.append(c_a - c_b)
-    deltas_arr = np.asarray(deltas)
-    p_val = float(np.mean(deltas_arr <= 0.0))
-    return {
-        "mean_delta_c_index": float(np.mean(deltas_arr)),
-        "ci95_low": float(np.percentile(deltas_arr, 2.5)),
-        "ci95_high": float(np.percentile(deltas_arr, 97.5)),
-        "p_value": p_val,
-    }
+def xai_deletion_faithfulness_score(
+    feature_matrix: np.ndarray,
+    shap_importance_order: np.ndarray,
+    baseline_risk_scores: np.ndarray,
+    predict_fn,
+) -> float:
+    """
+    Addresses Survey Section 6.4 & Challenge 5:
+    Quantifies XAI faithfulness by progressively zeroing top-ranked SHAP features and
+    measuring monotonic correlation between attribution rank and risk perturbation.
+    """
+    n, d = feature_matrix.shape
+    perturbed = feature_matrix.copy()
+    drops = []
+    for k in range(min(d, 10)):
+        col_idx = int(shap_importance_order[k])
+        perturbed[:, col_idx] = 0.0
+        new_risk = predict_fn(perturbed)
+        drops.append(float(np.mean(np.abs(baseline_risk_scores - new_risk))))
+    if len(drops) < 2:
+        return 1.0
+    ranks = np.arange(len(drops), dtype=np.float64)
+    corr = float(np.corrcoef(ranks, np.asarray(drops))[0, 1])
+    return float(np.clip(0.5 + 0.5 * (0.0 if np.isnan(corr) else corr), 0.0, 1.0))
